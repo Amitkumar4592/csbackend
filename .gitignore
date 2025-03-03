@@ -1,0 +1,4 @@
+.env
+/node_modules
+service-account.json
+urbanagri-backend-eb3cbc2e221a.json
