@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status
+# Exit script on any error
 set -e  
 
 # Create a virtual environment (only if it doesn't exist)
@@ -14,8 +14,12 @@ source venv/bin/activate
 # Upgrade pip
 pip install --upgrade pip
 
-# Install dependencies inside the virtual environment
-pip install -r requirements.txt  
+# Install required Python packages
+pip install opencv-python-headless==4.5.3.56 \
+            numpy \
+            pillow \
+            ultralytics \
+            jsonschema
 
 # Start the Node.js server
 node server.js  
