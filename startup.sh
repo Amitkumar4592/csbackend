@@ -1,11 +1,19 @@
 #!/bin/bash
 
-# Install system dependencies for OpenCV
-apt-get update && apt-get install -y \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    ffmpeg
+# Exit immediately if a command exits with a non-zero status
+set -e  
 
-# Install Python dependencies
-pip install --no-cache-dir -r requirements.txt
+# Create a virtual environment
+python3 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install dependencies inside the virtual environment
+pip install -r requirements.txt  
+
+# Run Node.js server
+node server.js  
