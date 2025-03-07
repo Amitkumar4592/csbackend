@@ -35,7 +35,49 @@ router.post("/signup", async (req, res) => {
 // 🔑 User Login (Handled on frontend)
 router.post("/login", async (req, res) => {
   try {
-    return res.status(200).json({ message: "Login handled on frontend using Firebase Auth" });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    // Firebase Sign-in using email & password
+    const userCredential = await auth.getUserByEmail(email);
+
+    if (!userCredential) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Fetch user details from Firestore
+    const userDoc = await db.collection("users").doc(userCredential.uid).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ message: "User not found in database" });
+    }
+
+    // Send user data
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: userCredential.uid,
+        email: userCredential.email,
+        name: userCredential.displayName,
+        role: userDoc.data().role,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Login failed", error: error.message });
+  }
+});
+
+// 👤 Get User Profile
+router.get("/user/profile", async (req, res) => {
+  try {
+    const userId = req.headers["user-id"];
+    if (!userId) return res.status(400).json({ message: "User ID required" });
+
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json(userDoc.data());
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
