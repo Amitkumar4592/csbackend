@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const { auth, db } = require("./db");
 
 const router = express.Router();
@@ -36,47 +37,41 @@ router.post("/signup", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Validate input
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    // Authenticate user with Firebase Auth
-    const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-    const user = userCredential.user;
+    // Get user by email from Firebase Auth
+    const userRecord = await auth.getUserByEmail(email);
+    const userId = userRecord.uid;
 
-    // Fetch user details from Firestore
-    const userDoc = await db.collection("users").doc(user.uid).get();
+    // Fetch user data from Firestore
+    const userDoc = await db.collection("users").doc(userId).get();
+
     if (!userDoc.exists) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
+    const userData = userDoc.data();
+
+    // 🔒 Check password (compare hashed password)
+    const isPasswordValid = await bcrypt.compare(password, userData.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // ✅ Successful login, return user details
     res.status(200).json({
       message: "Login successful",
-      user: {
-        id: user.uid,
-        email: user.email,
-        name: user.displayName || userDoc.data().name,
-        role: userDoc.data().role,
-      },
+      uid: userId,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
     });
   } catch (error) {
-    res.status(401).json({ message: "Invalid email or password", error: error.message });
-  }
-});
-
-
-// 👤 Get User Profile
-router.get("/user/profile", async (req, res) => {
-  try {
-    const userId = req.headers["user-id"];
-    if (!userId) return res.status(400).json({ message: "User ID required" });
-
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) return res.status(404).json({ message: "User not found" });
-
-    res.status(200).json(userDoc.data());
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
