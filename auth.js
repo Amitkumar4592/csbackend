@@ -1,7 +1,6 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const { auth, db } = require("./db");
-
+const axios = require("axios");
 const router = express.Router();
 
 // 🆕 User Signup
@@ -35,42 +34,44 @@ router.post("/signup", async (req, res) => {
 
 // 🔑 User Login (Handled on frontend)
 router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+
   try {
-    const { email, password } = req.body;
-
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    // Get user by email from Firebase Auth
+    // Step 1: Get user from Firebase Auth (to check if user exists)
     const userRecord = await auth.getUserByEmail(email);
     const userId = userRecord.uid;
 
-    // Fetch user data from Firestore
+    // Step 2: Verify password using Firebase REST API
+    const verifyPasswordUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_API_KEY}`;
+    const verifyResponse = await axios.post(verifyPasswordUrl, {
+      email,
+      password,
+      returnSecureToken: true,
+    });
+
+    const idToken = verifyResponse.data.idToken; // Firebase JWT token
+
+    // Step 3: Fetch additional user details from Firestore
     const userDoc = await db.collection("users").doc(userId).get();
-
     if (!userDoc.exists) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ message: "User data not found in Firestore" });
     }
 
-    const userData = userDoc.data();
-
-    // 🔒 Check password directly (No Hashing)
-    if (password !== userData.password) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    // ✅ Successful login, return user details
     res.status(200).json({
       message: "Login successful",
-      uid: userId,
-      name: userData.name,
-      email: userData.email,
-      role: userData.role,
+      user: {
+        id: userId,
+        email: userRecord.email,
+        name: userDoc.data().name,
+        role: userDoc.data().role,
+      },
+      token: idToken, // If needed for authentication
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(401).json({ message: "Invalid email or password", error: error.message });
   }
 });
 
