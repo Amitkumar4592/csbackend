@@ -35,38 +35,32 @@ router.post("/signup", async (req, res) => {
 // 🔑 User Login (Handled on frontend)
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
+    const { idToken } = req.body; // Get ID token from frontend
+    if (!idToken) return res.status(400).json({ message: "ID Token required" });
 
-    // Firebase Sign-in using email & password
-    const userCredential = await auth.getUserByEmail(email);
-
-    if (!userCredential) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    // Verify Firebase token
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const userId = decodedToken.uid;
 
     // Fetch user details from Firestore
-    const userDoc = await db.collection("users").doc(userCredential.uid).get();
-    if (!userDoc.exists) {
-      return res.status(404).json({ message: "User not found in database" });
-    }
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: "User not found" });
 
     // Send user data
     res.status(200).json({
       message: "Login successful",
       user: {
-        id: userCredential.uid,
-        email: userCredential.email,
-        name: userCredential.displayName,
+        id: userId,
+        email: decodedToken.email,
+        name: decodedToken.name,
         role: userDoc.data().role,
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Login failed", error: error.message });
+    res.status(401).json({ message: "Invalid or expired token", error: error.message });
   }
 });
+
 
 // 👤 Get User Profile
 router.get("/user/profile", async (req, res) => {
