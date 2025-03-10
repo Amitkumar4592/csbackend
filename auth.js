@@ -56,9 +56,8 @@ router.post("/login", async (req, res) => {
 
     const userData = userDoc.data();
 
-    // 🔒 Check password (compare hashed password)
-    const isPasswordValid = await bcrypt.compare(password, userData.password);
-    if (!isPasswordValid) {
+    // 🔒 Check password directly (No Hashing)
+    if (password !== userData.password) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -74,6 +73,7 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // 👤 Get User Profile
 router.get("/user/profile", async (req, res) => {
